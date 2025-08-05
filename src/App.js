@@ -6,17 +6,37 @@ function App() {
   const [counter, setCounter] = useState(0);
   const incrementCounter = () => setCounter((c) => c + 1);
 
-  // Memoiza la configuración para que no cambie su referencia en cada render
   const marketoConfig = useMemo(
     () => ({
       podId: '//402-ALY-118.mktoweb.com',
       munchkinId: '402-ALY-118',
-      formIds: [1240], // ID del formulario de Marketo
+      formIds: [1236, 1240], // ID del formulario de Marketo
+      callbacks: [
+        (form) => {
+          console.log('Formulario cargado 1');
+
+          form.onSuccess(function (values, followUpUrl) {
+            console.log('Formulario 1 enviado con éxito:', values);
+            return false; // Prevent default form submission
+            // Evita que el form recargue la web
+          });
+        },
+        (form) => {
+          console.log('Formulario cargado 2');
+
+          form.onSuccess(function (values, followUpUrl) {
+            console.log('Formulario 2 enviado con éxito:', values);
+            return true; // Prevent default form submission
+            // Evita que el form recargue la web
+          });
+        },
+      ],
     }),
     []
   );
 
   const formId = marketoConfig.formIds[0];
+  const formId2 = marketoConfig.formIds[1];
 
   return (
     <MarketoProvider config={marketoConfig}>
@@ -39,6 +59,17 @@ function App() {
           <h2 className='text-2xl font-semibold'>Solicita más información</h2>
           <p className='mt-2'>Completa el formulario y te contactaremos pronto.</p>
           <form className='mktoForm mt-4' data-formid={formId} data-forminstance='contact-form-1' />
+        </section>
+
+        {/* Formulario de contacto (instancia 3) */}
+        <section className='contact-form bg-gray-100 p-6'>
+          <h2 className='text-2xl font-semibold'>Solicita más información</h2>
+          <p className='mt-2'>Completa el formulario y te contactaremos pronto.</p>
+          <form
+            className='mktoForm mt-4'
+            data-formid={formId2}
+            data-forminstance='contact-form-1'
+          />
         </section>
 
         {/* Información del programa */}
