@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import MarketoProvider from './MarketoProvider';
+import getPrograms from './utils/getPrograms';
 import './App.css';
 
 function App() {
@@ -10,85 +11,59 @@ function App() {
     () => ({
       podId: '//402-ALY-118.mktoweb.com',
       munchkinId: '402-ALY-118',
-      formIds: [1236, 1240], // ID del formulario de Marketo
+      formIds: [1236, 1240],
       callbacks: [
         (form) => {
-          const programSelector = 'select[name="mkto_programoriginal"]';
-          const formRef = form.getFormElem()[0];
-          const checkSelections = formRef.querySelectorAll(
-            'input[type="radio"][name="mktoutilitycheck1"]'
-          );
+          const PROGRAM_SELECTOR = 'select[name="mkto_programoriginal"]';
+          const formElem = form.getFormElem?.()[0];
+          if (!formElem) return;
 
-          // Obtencion de programas desde cache AEM
-          const getPrograms = (formRef, elementSelector) => {
-            const programPicklist = formRef.querySelector(`${elementSelector}`);
-
-            fetch(
-              'https://publish-p147864-e1510969.adobeaemcloud.com/content/dam/ieprogram/json/programas.json',
-              {
-                method: 'GET',
-                redirect: 'follow',
-              }
-            )
-              .then((response) => response.json())
-              .then(({ value: programs }) => {
-                // filter programs.parentprogramid.productid for this value 1fdcc153-9ef1-df11-bc9f-005056b460d2
-                const filteredPrograms = programs
-                  .filter(
-                    (program) =>
-                      program.parentproductid.productid === '1fdcc153-9ef1-df11-bc9f-005056b460d2'
-                  )
-                  .slice(0, 10); // Limit to 10
-
-                if (!programPicklist) return;
-                programPicklist.innerHTML = ''; // Clear existing options
-
-                // Populate the programPicklist with the filtered programs
-                filteredPrograms.forEach((program) => {
-                  const option = document.createElement('option');
-                  option.value = program.productid;
-                  option.textContent = program.name;
-
-                  programPicklist.appendChild(option);
-                });
-              })
-              .catch((error) => console.error(error));
-          };
-
-          getPrograms(formRef, programSelector);
-
-          // Add change event listener to the checkSelection field
-          checkSelections.forEach(function (radio) {
-            radio.addEventListener('change', function () {
-              const isSingle = this.value === 'single';
-
-              form.vals({
-                ie_pathwayid: isSingle ? '' : 'pathway-id',
-                ie_interestedin: isSingle ? '' : 'unit-id',
-              });
-
-              console.log(form.vals());
-
-              if (isSingle) {
-                setTimeout(() => {
-                  getPrograms(formRef, programSelector);
-                }, 100);
-              }
-            });
+          // Carga inicial de programas (reutilizable)
+          getPrograms({
+            formElem,
+            selectSelector: PROGRAM_SELECTOR,
           });
 
-          form.onSuccess(function (values, followUpUrl) {
+          // Manejo opcional del grupo de radios (si existe)
+          const radios = formElem.querySelectorAll('input[type="radio"][name="mktoutilitycheck1"]');
+
+          // Evita adjuntar listeners más de una vez si Marketo re-dispara callbacks
+          if (!formElem.dataset.utilityListenersAttached && radios?.length) {
+            formElem.dataset.utilityListenersAttached = 'true';
+
+            radios.forEach((radio) => {
+              radio.addEventListener('change', function () {
+                const isSingle = this.value === 'single';
+
+                // Seteo de campos ocultos (opcional por form)
+                form.vals?.({
+                  ie_pathwayid: isSingle ? '' : 'pathway-id',
+                  ie_interestedin: isSingle ? '' : 'unit-id',
+                });
+
+                // Si el modo cambia a "single", refrescamos opciones
+                if (isSingle) {
+                  setTimeout(() => {
+                    getPrograms({
+                      formElem,
+                      selectSelector: PROGRAM_SELECTOR,
+                    });
+                  }, 100);
+                }
+              });
+            });
+          }
+
+          form.onSuccess?.(function (values, followUpUrl) {
             console.log('Form submitted successfully:', values);
-            return false; // Prevent default form submission
+            return false; // Evita el submit por defecto
           });
         },
         (form) => {
           console.log('Formulario cargado 2');
-
-          form.onSuccess(function (values, followUpUrl) {
+          form.onSuccess?.(function (values, followUpUrl) {
             console.log('Formulario 2 enviado con éxito:', values);
-            return true; // Prevent default form submission
-            // Evita que el form recargue la web
+            return true; // Permite el submit por defecto si así lo quieres aquí
           });
         },
       ],
@@ -96,8 +71,7 @@ function App() {
     []
   );
 
-  const formId = marketoConfig.formIds[0];
-  const formId2 = marketoConfig.formIds[1];
+  const [formId, formId2] = marketoConfig.formIds;
 
   return (
     <MarketoProvider config={marketoConfig}>
@@ -108,7 +82,7 @@ function App() {
           <p className='mt-2 text-lg'>Construye tu futuro en el mundo de la tecnología.</p>
         </header>
 
-        {/* Botón para contar (cambia estado sin duplicar forms) */}
+        {/* Botón contador */}
         <div className='text-center mt-4'>
           <button onClick={incrementCounter} className='bg-green-500 text-white px-4 py-2 rounded'>
             Contador: {counter}
@@ -148,7 +122,7 @@ function App() {
           </ul>
         </section>
 
-        {/* Otra sección con el mismo form (instancia 2) */}
+        {/* Formulario de contacto (instancia 2) */}
         <section className='contact-form bg-gray-100 p-6'>
           <h2 className='text-2xl font-semibold'>¿Listo para inscribirte?</h2>
           <p className='mt-2'>Déjanos tus datos y un asesor te guiará en el proceso.</p>
