@@ -14,56 +14,85 @@ function App() {
       formIds: [1236, 1240],
       callbacks: [
         (form) => {
-          const PROGRAM_SELECTOR = 'select[name="mkto_programoriginal"]';
+          const PROGRAM_SELECTOR = '#mkto_programoriginal, select[name="mkto_programoriginal"]';
           const formElem = form.getFormElem?.()[0];
           if (!formElem) return;
 
-          // Carga inicial de programas (reutilizable)
-          getPrograms({
-            formElem,
-            selectSelector: PROGRAM_SELECTOR,
-          });
+          // Intenta poblar si ya existe al entrar
+          const tryLoadPrograms = () => {
+            const picklist = formElem.querySelector(PROGRAM_SELECTOR);
+            if (!picklist) return;
 
-          // Manejo opcional del grupo de radios (si existe)
-          const radios = formElem.querySelectorAll('input[type="radio"][name="mktoutilitycheck1"]');
+            // Evita cargar dos veces sobre el mismo <select>
+            if (picklist.dataset.programsLoaded === 'true') return;
+            picklist.dataset.programsLoaded = 'true';
 
-          // Evita adjuntar listeners más de una vez si Marketo re-dispara callbacks
-          if (!formElem.dataset.utilityListenersAttached && radios?.length) {
-            formElem.dataset.utilityListenersAttached = 'true';
-
-            radios.forEach((radio) => {
-              radio.addEventListener('change', function () {
-                const isSingle = this.value === 'single';
-
-                // Aca se cargan los valores que tendran los 'hiddenFields' asociados a la landing. Estos valores dependeran de la landing/form que se este configurando
-                form.vals?.({
-                  ie_pathwayid: isSingle ? '' : 'pathway-id',
-                  ie_interestedin: isSingle ? '' : 'unit-id',
-                });
-
-                // Si el modo cambia a "single", refrescamos opciones
-                if (isSingle) {
-                  setTimeout(() => {
-                    getPrograms({
-                      formElem,
-                      selectSelector: PROGRAM_SELECTOR,
-                    });
-                  }, 100);
-                }
-              });
+            getPrograms({
+              formElem,
+              selectSelector: PROGRAM_SELECTOR,
+              // Puedes personalizar estos si algún form lo requiere
+              // endpoint: 'https://.../programas.json',
+              // parentProductId: '1fdcc153-9ef1-df11-bc9f-005056b460d2',
+              // limit: 10,
             });
+          };
+
+          // Carga inicial si ya está renderizado
+          tryLoadPrograms();
+
+          // Configura observer una sola vez por form
+          if (!formElem._programPicklistObserver) {
+            let wasPresent = !!formElem.querySelector(PROGRAM_SELECTOR);
+
+            const observer = new MutationObserver(() => {
+              const picklist = formElem.querySelector(PROGRAM_SELECTOR);
+              const isPresent = !!picklist;
+
+              if (isPresent && !wasPresent) {
+                // El selector apareció (o fue re-montado por Marketo)
+                wasPresent = true;
+                // Como es un nodo nuevo, no tendrá la marca y volveremos a cargar
+                tryLoadPrograms();
+              }
+
+              if (!isPresent && wasPresent) {
+                // El selector fue removido; reseteamos el flag
+                wasPresent = false;
+              }
+            });
+
+            observer.observe(formElem, { childList: true, subtree: true });
+            // Guarda referencia para no volver a crear otro observer
+            formElem._programPicklistObserver = observer;
           }
 
-          form.onSuccess?.(function (values, followUpUrl) {
-            console.log('Form submitted successfully:', values);
-            return false; // Evita el submit por defecto
+          // onSuccess original
+          form.onSuccess(function (values) {
+            // Redireccion controlada en base a la seleccion del usuario
+            // Dentro de values, estan los valores de todos los campos tal cual como el usuario los ha completado, incluyendo lo hidden fields que hemos cargado.
+            // Supongamos que se desea redireccionar a x landing si ha seleccionado el programa 'Diploma in Strategic Interior Design'.
+            // Para esto, se debe validar por valor seleccionado
+
+            console.log('Formulario enviado con éxito:', values);
+
+            switch (values.mkto_programoriginal) {
+              case '9570641a-ca3f-ed11-9db0-002248801ebb':
+                window.location.href =
+                  'https://www.example.com/diploma-in-strategic-interior-design';
+                break;
+
+              default:
+                break;
+            }
+
+            return true;
           });
         },
         (form) => {
           console.log('Formulario cargado 2');
-          form.onSuccess?.(function (values, followUpUrl) {
+          form.onSuccess?.(function (values) {
             console.log('Formulario 2 enviado con éxito:', values);
-            return true; // Permite el submit por defecto si así lo quieres aquí
+            return true;
           });
         },
       ],
@@ -76,27 +105,19 @@ function App() {
   return (
     <MarketoProvider config={marketoConfig}>
       <div className='landing-page'>
-        {/* Encabezado */}
-        <header className='bg-blue-600 text-white p-6 text-center'>
-          <h1 className='text-4xl font-bold'>Carrera de Ingeniería en Sistemas</h1>
-          <p className='mt-2 text-lg'>Construye tu futuro en el mundo de la tecnología.</p>
-        </header>
-
-        {/* Botón contador */}
+        {/* ... resto igual ... */}
         <div className='text-center mt-4'>
           <button onClick={incrementCounter} className='bg-green-500 text-white px-4 py-2 rounded'>
             Contador: {counter}
           </button>
         </div>
 
-        {/* Formulario de contacto (instancia 1) */}
         <section className='contact-form bg-gray-100 p-6'>
           <h2 className='text-2xl font-semibold'>Solicita más información</h2>
           <p className='mt-2'>Completa el formulario y te contactaremos pronto.</p>
           <form className='mktoForm mt-4' data-formid={formId} data-forminstance='contact-form-1' />
         </section>
 
-        {/* Formulario de contacto (instancia 3) */}
         <section className='contact-form bg-gray-100 p-6'>
           <h2 className='text-2xl font-semibold'>Solicita más información</h2>
           <p className='mt-2'>Completa el formulario y te contactaremos pronto.</p>
@@ -107,32 +128,12 @@ function App() {
           />
         </section>
 
-        {/* Información del programa */}
-        <section className='program-info p-6'>
-          <h2 className='text-2xl font-semibold'>¿Qué ofrecemos?</h2>
-          <p className='mt-4'>
-            En la carrera de Ingeniería en Sistemas aprenderás a diseñar, desarrollar y gestionar
-            soluciones tecnológicas innovadoras. Desde programación hasta inteligencia artificial,
-            te preparamos para liderar la transformación digital.
-          </p>
-          <ul className='list-disc list-inside mt-4'>
-            <li>Duración: 4 años</li>
-            <li>Modalidad: Presencial o en línea</li>
-            <li>Inicio: Febrero 2025</li>
-          </ul>
-        </section>
-
-        {/* Formulario de contacto (instancia 2) */}
+        {/* ... resto igual ... */}
         <section className='contact-form bg-gray-100 p-6'>
           <h2 className='text-2xl font-semibold'>¿Listo para inscribirte?</h2>
           <p className='mt-2'>Déjanos tus datos y un asesor te guiará en el proceso.</p>
           <form className='mktoForm mt-4' data-formid={formId} data-forminstance='contact-form-2' />
         </section>
-
-        {/* Footer */}
-        <footer className='bg-gray-800 text-white p-4 text-center'>
-          <p>© 2025 Universidad Tecnológica. Todos los derechos reservados.</p>
-        </footer>
       </div>
     </MarketoProvider>
   );
