@@ -35,7 +35,7 @@ function App() {
               radio.addEventListener('change', function () {
                 const isSingle = this.value === 'single';
 
-                // Seteo de campos ocultos (opcional por form)
+                // Aca se cargan los valores que tendran los 'hiddenFields' asociados a la landing. Estos valores dependeran de la landing/form que se este configurando
                 form.vals?.({
                   ie_pathwayid: isSingle ? '' : 'pathway-id',
                   ie_interestedin: isSingle ? '' : 'unit-id',
