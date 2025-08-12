@@ -12,10 +12,11 @@ function App() {
       podId: '//402-ALY-118.mktoweb.com',
       munchkinId: '402-ALY-118',
       formIds: [1236, 1240],
+      // Este listado de callbacks se agregaran a las diferentes instancias de formulario que se carguen en la pagina. Sigue el orden en el que se declaran en formIds.
       callbacks: [
         (form) => {
           const PROGRAM_SELECTOR = '#mkto_programoriginal, select[name="mkto_programoriginal"]';
-          const formElem = form.getFormElem?.()[0];
+          const formElem = form.getFormElem?.()[0]; // instancia del formulario sobre el que se agregara esta logica.
           if (!formElem) return;
 
           // Intenta poblar si ya existe al entrar
@@ -61,6 +62,7 @@ function App() {
               }
             });
 
+            // Se crea un observer sobre el formulario para poder detectar cuando se ha cargado el select nuevamente.
             observer.observe(formElem, { childList: true, subtree: true });
             // Guarda referencia para no volver a crear otro observer
             formElem._programPicklistObserver = observer;
@@ -73,7 +75,6 @@ function App() {
             // Supongamos que se desea redireccionar a x landing si ha seleccionado el programa 'Diploma in Strategic Interior Design'.
             // Para esto, se debe validar por valor seleccionado
             console.log(form.vals());
-
             console.log('Formulario enviado con éxito:', values);
 
             switch (values.mkto_programoriginal) {
@@ -81,6 +82,8 @@ function App() {
                 window.location.href =
                   'https://www.example.com/diploma-in-strategic-interior-design';
                 break;
+
+              // Agregar aca el resto de redirecciones dinamicas
 
               default:
                 break;
