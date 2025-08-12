@@ -13,12 +13,73 @@ function App() {
       formIds: [1236, 1240], // ID del formulario de Marketo
       callbacks: [
         (form) => {
-          console.log('Formulario cargado 1');
+          const programSelector = 'select[name="mkto_programoriginal"]';
+          const formRef = form.getFormElem()[0];
+          const checkSelections = formRef.querySelectorAll(
+            'input[type="radio"][name="mktoutilitycheck1"]'
+          );
+
+          // Obtencion de programas desde cache AEM
+          const getPrograms = (formRef, elementSelector) => {
+            const programPicklist = formRef.querySelector(`${elementSelector}`);
+
+            fetch(
+              'https://publish-p147864-e1510969.adobeaemcloud.com/content/dam/ieprogram/json/programas.json',
+              {
+                method: 'GET',
+                redirect: 'follow',
+              }
+            )
+              .then((response) => response.json())
+              .then(({ value: programs }) => {
+                // filter programs.parentprogramid.productid for this value 1fdcc153-9ef1-df11-bc9f-005056b460d2
+                const filteredPrograms = programs
+                  .filter(
+                    (program) =>
+                      program.parentproductid.productid === '1fdcc153-9ef1-df11-bc9f-005056b460d2'
+                  )
+                  .slice(0, 10); // Limit to 10
+
+                if (!programPicklist) return;
+                programPicklist.innerHTML = ''; // Clear existing options
+
+                // Populate the programPicklist with the filtered programs
+                filteredPrograms.forEach((program) => {
+                  const option = document.createElement('option');
+                  option.value = program.productid;
+                  option.textContent = program.name;
+
+                  programPicklist.appendChild(option);
+                });
+              })
+              .catch((error) => console.error(error));
+          };
+
+          getPrograms(formRef, programSelector);
+
+          // Add change event listener to the checkSelection field
+          checkSelections.forEach(function (radio) {
+            radio.addEventListener('change', function () {
+              const isSingle = this.value === 'single';
+
+              form.vals({
+                ie_pathwayid: isSingle ? '' : 'pathway-id',
+                ie_interestedin: isSingle ? '' : 'unit-id',
+              });
+
+              console.log(form.vals());
+
+              if (isSingle) {
+                setTimeout(() => {
+                  getPrograms(formRef, programSelector);
+                }, 100);
+              }
+            });
+          });
 
           form.onSuccess(function (values, followUpUrl) {
-            console.log('Formulario 1 enviado con éxito:', values);
+            console.log('Form submitted successfully:', values);
             return false; // Prevent default form submission
-            // Evita que el form recargue la web
           });
         },
         (form) => {
