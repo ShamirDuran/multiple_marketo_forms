@@ -72,6 +72,7 @@ function App() {
             // Dentro de values, estan los valores de todos los campos tal cual como el usuario los ha completado, incluyendo lo hidden fields que hemos cargado.
             // Supongamos que se desea redireccionar a x landing si ha seleccionado el programa 'Diploma in Strategic Interior Design'.
             // Para esto, se debe validar por valor seleccionado
+            console.log(form.vals());
 
             console.log('Formulario enviado con éxito:', values);
 
@@ -85,13 +86,12 @@ function App() {
                 break;
             }
 
-            return true;
+            return false;
           });
         },
         (form) => {
           console.log('Formulario cargado 2');
           form.onSuccess?.(function (values) {
-            console.log('Formulario 2 enviado con éxito:', values);
             return true;
           });
         },
